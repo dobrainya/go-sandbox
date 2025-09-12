@@ -15,6 +15,7 @@ type Range struct {
 	Offset int
 	Start  int
 	End    int
+	Errors int
 }
 
 func main() {
@@ -26,9 +27,8 @@ func main() {
 	downloadFile(
 		"https://fias-file.nalog.ru/downloads/2025.09.05/gar_xml.zip",
 		"gar_full.zip",
-		1024,
+		800000000, //100Mb
 	)
-
 }
 
 func downloadFile(url string, filePath string, partSize int) {
@@ -62,7 +62,7 @@ func downloadFile(url string, filePath string, partSize int) {
 		jobsCount += 1
 	}
 
-	fmt.Println("Jobs count: ", jobsCount, "File size: ", fileSize)
+	fmt.Printf("Jobs count: %d \nFile size: %d\n", jobsCount, fileSize)
 
 	jobsCh := make(chan *Range, jobsCount)
 
@@ -81,7 +81,7 @@ func downloadFile(url string, filePath string, partSize int) {
 
 	go func() {
 		for i := range jobsCount {
-			if i > 1 {
+			if i > 0 {
 				startRange = endRange + 1
 			}
 
@@ -91,7 +91,7 @@ func downloadFile(url string, filePath string, partSize int) {
 				endRange = fileSize
 			}
 
-			jobsCh <- &Range{i, startRange, endRange}
+			jobsCh <- &Range{i, startRange, endRange, 0}
 		}
 
 		close(jobsCh)
@@ -123,16 +123,31 @@ func downloadFile(url string, filePath string, partSize int) {
 					if !ok {
 						return
 					}
-					err := downloadRange(url, ranges, file)
 
-					if err != nil {
-						jobsCh <- ranges
-						continue
+					for {
+						if ranges.Errors == 3 {
+							fmt.Println("Range %d-%d: download attempt exeeded", ranges.Start, ranges.End)
+							return
+						}
+
+						if ranges.Errors > 0 {
+							time.Sleep(time.Duration(5) * time.Duration(ranges.Errors) * time.Second)
+						}
+
+						err := downloadRange(url, ranges, file)
+
+						if err != nil {
+							fmt.Println(err.Error())
+							ranges.Errors += 1
+							continue
+						}
+
+						locker.Lock()
+						processedJobs++
+						locker.Unlock()
+
+						return
 					}
-
-					locker.Lock()
-					processedJobs++
-					locker.Unlock()
 				}
 			}
 		}()
@@ -153,7 +168,7 @@ func downloadRange(url string, ranges *Range, file *os.File) error {
 	req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", ranges.Start, ranges.End))
 
 	client := &http.Client{
-		Timeout: 15 * time.Second,
+		//Timeout: 300 * time.Second,
 	}
 
 	fileResp, err := client.Do(req)
@@ -177,7 +192,7 @@ func downloadRange(url string, ranges *Range, file *os.File) error {
 		return err
 	}
 
-	//fmt.Printf("\r%d: Download by range %d-%d\n", ranges.Offset, ranges.Start, ranges.End)
+	fmt.Printf("\r%d: Download by range %d-%d\n", ranges.Offset, ranges.Start, ranges.End)
 	// fmt.Println("Content-Range:", fileResp.Header.Get("Content-Range"))
 	// fmt.Println("Content-Length:", contentLength)
 
