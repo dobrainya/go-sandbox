@@ -10,7 +10,7 @@ import (
 
 var (
 	connectionString = "amqp://guest:guest@localhost:5672/"
-	exchangeName     = "test_ex"
+	exchangeName     = "qex" // ""  - is default exange in rabbit
 )
 
 func failOnError(err error, msg string) {
@@ -29,14 +29,15 @@ func main() {
 	defer ch.Close()
 
 	// q, err := ch.QueueDeclare(
-	// 	"hello", // name
-	// 	false,   // durable
-	// 	false,   // delete when unused
-	// 	false,   // exclusive
-	// 	false,   // no-wait
-	// 	nil,     // arguments
+	// 	"q1",  // name
+	// 	true,  // durable
+	// 	false, // delete when unused
+	// 	false, // exclusive
+	// 	false, // no-wait
+	// 	nil,   // arguments
 	// )
 	// failOnError(err, "Failed to declare a queue")
+	// _ = q
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -50,8 +51,9 @@ func main() {
 		false,        // mandatory
 		false,        // immediate
 		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(body),
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "text/plain",
+			Body:         []byte(body),
 		})
 	failOnError(err, "Failed to publish a message")
 	log.Printf(" [x] Sent %s\n", body)
