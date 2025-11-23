@@ -2,15 +2,21 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"log"
+	"os"
 	"time"
+
+	"github.com/joho/godotenv"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 var (
-	connectionString = "amqp://guest:guest@localhost:5672/"
-	exchangeName     = "qex" // ""  - is default exange in rabbit
+	//connectionString = "amqps://guest:guest@localhost:5672/test"
+	exchangeName = "qex" // ""  - is default exange in rabbit
 )
 
 func failOnError(err error, msg string) {
@@ -20,7 +26,41 @@ func failOnError(err error, msg string) {
 }
 
 func main() {
-	conn, err := amqp.Dial(connectionString)
+	err := godotenv.Load("../.env")
+	if err != nil {
+		log.Fatal("Ошибка загрузки файла .env")
+	}
+	rmq_user := os.Getenv("RABBITMQ_DEFAULT_USER")
+	rmq_pass := os.Getenv("RABBITMQ_DEFAULT_PASS")
+	rmq_port := os.Getenv("RABBITMQ_PORT")
+	rmq_vhost := os.Getenv("RABBITMQ_DEFAULT_VHOST")
+	rmq_tls_certfile := os.Getenv("CLIENT_TLS_CERT_FILE")
+	rmq_tls_keyfile := os.Getenv("CLIENT_TLS_KEY_FILE")
+	rmq_tls_cafile := os.Getenv("CLIENT_TLS_CA_FILE")
+
+	connectionString := fmt.Sprintf(
+		"amqps://%s:%s@localhost:%s/%s",
+		rmq_user,
+		rmq_pass,
+		rmq_port,
+		rmq_vhost,
+	)
+
+	fmt.Println(connectionString)
+
+	cfg := tls.Config{}
+	cfg.RootCAs = x509.NewCertPool()
+
+	caCert, err := os.ReadFile(rmq_tls_cafile)
+	failOnError(err, "Unable to read CA bundle")
+	cfg.RootCAs.AppendCertsFromPEM(caCert)
+
+	cert, err := tls.LoadX509KeyPair(rmq_tls_certfile, rmq_tls_keyfile)
+	failOnError(err, "Unable to read certificate or key")
+	cfg.Certificates = append(cfg.Certificates, cert)
+	cfg.MinVersion = tls.VersionTLS12
+
+	conn, err := amqp.DialTLS(connectionString, &cfg)
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 

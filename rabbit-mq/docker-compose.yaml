@@ -1,7 +1,21 @@
 services:
   rabbitmq:
     image: rabbitmq:4-management
-    container_name: rabbitmq
+    container_name: ${APP_NAME}-rabbitmq
+    hostname: ${APP_NAME}-rabbit-1
+    #restart: always
     ports:
-      - 15672:15672
-      - 5672:5672
+      - ${RABBITMQ_DASH_PORT}:15672 # http/dashboard
+      - ${RABBITMQ_PORT}:5672 #amqp
+      - ${RABBITMQ_TLS_PORT}:5671 #amqp/tls
+      - 25672:25672 #clustering
+    environment:
+      - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_DEFAULT_VHOST}
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_NODENAME=rabbit01@${APP_NAME}-rabbit-1
+      - RABBITMQ_NODE_PORT=5672
+    volumes:
+      - ./ssl:/otp/rabbitmq/ssl
+      - ./rabbitmq.conf:/etc/rabbitmq/conf.d/11-rabbitmq.conf
+      

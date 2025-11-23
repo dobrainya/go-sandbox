@@ -1,15 +1,19 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"time"
+
+	"github.com/joho/godotenv"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 var (
-	connectionString = "amqp://guest:guest@localhost:5672/"
-	quueName         = "q1"
+	//connectionString = "amqp://guest:guest@localhost:5672/"
+	quueName = "q1"
 )
 
 func failOnError(err error, msg string) {
@@ -19,6 +23,26 @@ func failOnError(err error, msg string) {
 }
 
 func main() {
+	err := godotenv.Load("../.env")
+	if err != nil {
+		log.Fatal("Ошибка загрузки файла .env")
+	}
+
+	rmq_user := os.Getenv("RABBITMQ_DEFAULT_USER")
+	rmq_pass := os.Getenv("RABBITMQ_DEFAULT_PASS")
+	rmq_port := os.Getenv("RABBITMQ_PORT")
+	rmq_vhost := os.Getenv("RABBITMQ_DEFAULT_VHOST")
+
+	connectionString := fmt.Sprintf(
+		"amqp://%s:%s@localhost:%s/%s",
+		rmq_user,
+		rmq_pass,
+		rmq_port,
+		rmq_vhost,
+	)
+
+	fmt.Println(connectionString)
+
 	conn, err := amqp.Dial(connectionString)
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
