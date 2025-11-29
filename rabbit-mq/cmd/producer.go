@@ -30,21 +30,10 @@ func main() {
 	if err != nil {
 		log.Fatal("Ошибка загрузки файла .env")
 	}
-	rmq_user := os.Getenv("RABBITMQ_DEFAULT_USER")
-	rmq_pass := os.Getenv("RABBITMQ_DEFAULT_PASS")
-	rmq_port := os.Getenv("RABBITMQ_PORT")
-	rmq_vhost := os.Getenv("RABBITMQ_DEFAULT_VHOST")
+	connectionString := os.Getenv("RABBITMQ_CONNECTION_URI")
 	rmq_tls_certfile := os.Getenv("CLIENT_TLS_CERT_FILE")
 	rmq_tls_keyfile := os.Getenv("CLIENT_TLS_KEY_FILE")
 	rmq_tls_cafile := os.Getenv("CLIENT_TLS_CA_FILE")
-
-	connectionString := fmt.Sprintf(
-		"amqps://%s:%s@localhost:%s/%s",
-		rmq_user,
-		rmq_pass,
-		rmq_port,
-		rmq_vhost,
-	)
 
 	fmt.Println(connectionString)
 
@@ -60,7 +49,7 @@ func main() {
 	cfg.Certificates = append(cfg.Certificates, cert)
 	cfg.MinVersion = tls.VersionTLS12
 
-	conn, err := amqp.DialTLS(connectionString, &cfg)
+	conn, err := amqp.DialTLS_ExternalAuth(connectionString, &cfg)
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 
