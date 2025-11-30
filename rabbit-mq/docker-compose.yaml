@@ -17,5 +17,7 @@ services:
       - RABBITMQ_NODE_PORT=5672
     volumes:
       - ./ssl:/otp/rabbitmq/ssl
-      - ./rabbitmq.conf:/etc/rabbitmq/conf.d/11-rabbitmq.conf
+      - ./config/rabbitmq.conf:/etc/rabbitmq/conf.d/11-rabbitmq.conf
+      - ./config/enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ./config/definitions.json:/etc/rabbitmq/definitions/conf.d/10-custom.json
       

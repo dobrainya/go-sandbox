@@ -9,13 +9,14 @@ import (
 	"os"
 	"time"
 
+	"flag"
+
 	"github.com/joho/godotenv"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 var (
-	//connectionString = "amqps://guest:guest@localhost:5672/test"
 	exchangeName = "qex" // ""  - is default exange in rabbit
 )
 
@@ -30,6 +31,18 @@ func main() {
 	if err != nil {
 		log.Fatal("Ошибка загрузки файла .env")
 	}
+
+	var msg string
+
+	flag.StringVar(&msg, "m", "", "Message to send to message broker")
+
+	flag.Parse()
+
+	if len(msg) == 0 {
+		fmt.Println("message was not provided. Use -h for more info")
+		return
+	}
+
 	connectionString := os.Getenv("RABBITMQ_CONNECTION_URI")
 	rmq_tls_certfile := os.Getenv("CLIENT_TLS_CERT_FILE")
 	rmq_tls_keyfile := os.Getenv("CLIENT_TLS_KEY_FILE")
@@ -57,24 +70,31 @@ func main() {
 	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
 
-	// q, err := ch.QueueDeclare(
-	// 	"q1",  // name
-	// 	true,  // durable
-	// 	false, // delete when unused
-	// 	false, // exclusive
-	// 	false, // no-wait
-	// 	nil,   // arguments
-	// )
-	// failOnError(err, "Failed to declare a queue")
-	// _ = q
+	q, err := ch.QueueDeclare(
+		"q1",  // queue name
+		true,  // durable
+		false, // delete when unused
+		false, // exclusive
+		false, // no-wait
+		nil,   // arguments
+	)
+
+	failOnError(err, "Failed to declare a queue")
+
+	err = ch.QueueBind(
+		q.Name, // queue name
+		"",     // routing key
+		"qex",  // exchange name
+		false,  // no-wait
+		nil,    // arguments
+	)
+
+	failOnError(err, "Cannot bind queue to exchange")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	body := "Hello World!"
 	err = ch.PublishWithContext(ctx,
-		//"",     // exchange
-		//q.Name, // routing key
 		exchangeName, // exchange
 		"",           // routing key
 		false,        // mandatory
@@ -82,8 +102,8 @@ func main() {
 		amqp.Publishing{
 			DeliveryMode: amqp.Persistent,
 			ContentType:  "text/plain",
-			Body:         []byte(body),
+			Body:         []byte(msg),
 		})
 	failOnError(err, "Failed to publish a message")
-	log.Printf(" [x] Sent %s\n", body)
+	log.Printf(" [x] Sent %s\n", msg)
 }
